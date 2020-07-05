@@ -2,7 +2,7 @@
 using System.Threading.Tasks;
 using Tfplugin5;
 
-namespace NETCore.Terraform.SDK
+namespace NETCore.Terraform.SDK.Protocols
 {
     public class ProviderService : Provider.ProviderBase
     {
