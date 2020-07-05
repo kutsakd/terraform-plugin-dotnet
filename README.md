@@ -1,4 +1,4 @@
-# Terraform Plugin SDK
+# Terraform Plugin .NET SDK
 
 This SDK enables building Terraform plugin which allows Terraform's users to manage existing service providers as well as custom in-house solutions.
 
