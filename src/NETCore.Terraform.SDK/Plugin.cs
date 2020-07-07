@@ -1,15 +1,12 @@
 ﻿using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NETCore.Terraform.SDK.Abstractions;
 using System;
 using System.IO;
 using System.IO.Compression;
-using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
-using System.Threading.Tasks;
 
 namespace NETCore.Terraform.SDK
 {
@@ -45,11 +42,6 @@ namespace NETCore.Terraform.SDK
 
             var builder = new HostBuilder();
             builder.UseContentRoot(Directory.GetCurrentDirectory());
-            builder.ConfigureHostConfiguration(configuration =>
-            {
-                configuration.AddEnvironmentVariables(prefix: "TF_");
-            });
-
             builder.ConfigureLogging((hostingContext, logging) =>
             {
                 logging.AddDebug();
@@ -59,6 +51,8 @@ namespace NETCore.Terraform.SDK
 
             builder.ConfigureServices((context, services) =>
             {
+                services.AddSingleton<IMetadataProvider, DefaultMetadataProvider>();
+
                 services.AddGrpc(options =>
                 {
                     options.EnableDetailedErrors = context.HostingEnvironment.IsDevelopment();
@@ -66,46 +60,24 @@ namespace NETCore.Terraform.SDK
                 });
             });
 
-            var certificateContent = Environment.GetEnvironmentVariable("PLUGIN_CLIENT_CERT");
-            var certificate = ParseClientCertificate(certificateContent);
-            if (certificate != null)
+            builder.ConfigureWebHost(hostBuilder =>
             {
-                builder.ConfigureWebHost(hostBuilder => hostBuilder.ConfigureKestrel(options =>
+                hostBuilder.UseKestrel(options =>
                 {
-                    options.ConfigureHttpsDefaults(connectionOptions =>
-                    {
-                        connectionOptions.SslProtocols = SslProtocols.Tls12;
-                        connectionOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
-                        connectionOptions.ClientCertificateValidation = (certificate, chain, _) =>
-                        {
-                            return certificate.Thumbprint == certificate.Thumbprint;
-                        };
-                    });
-                }));
-            }
+                    options.ConfigureListeners();
 
-            Console.WriteLine("1|5|tcp|127.0.0.1:5001|grpc|");
+                    // If the client is configured using AutoMTLS, the certificate will be here,
+                    // and we need to generate our own in response.
+                    options.ConfigureHttps();
+                });
+            });
+
             return builder.UseDefaultServiceProvider((context, options) =>
             {
                 var isDevelopment = context.HostingEnvironment.IsDevelopment();
                 options.ValidateScopes = isDevelopment;
                 options.ValidateOnBuild = isDevelopment;
             });
-        }
-
-        private static X509Certificate2 ParseClientCertificate(string certificateContent)
-        {
-            if (!string.IsNullOrWhiteSpace(certificateContent))
-            {
-                var certificateBlocks = certificateContent.Split('-', StringSplitOptions.RemoveEmptyEntries);
-                if (certificateBlocks.Length > 1)
-                {
-                    var certificateBytes = Convert.FromBase64String(certificateBlocks[1]);
-                    return new X509Certificate2(certificateBytes);
-                }
-            }
-
-            return null;
         }
     }
 }
