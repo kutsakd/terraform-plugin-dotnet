@@ -49,7 +49,7 @@ namespace NETCore.Terraform.SDK
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 var listenerAddress = serverAddresses.First(addr => addr.Scheme == "https");
-                metadata.ListenerType = listenerAddress.Scheme;
+                metadata.ListenerType = "tcp";
                 metadata.ListenerPath = listenerAddress.Authority;
                 return;
             }
